@@ -3,7 +3,7 @@
 \title{Add a locus}
 
 \description{
-  Add a locus to a Rmetasim landscape object}
+  Add a locus to a Rmetasim landscape object. The maximum number of loci allowed is 30 000.}
 \usage{
 ## must be called AFTER integer, switch, and float params have been created
 landscape.new.locus(rland,type=0,ploidy=1,
