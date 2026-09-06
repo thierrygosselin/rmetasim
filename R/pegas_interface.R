@@ -1,45 +1,34 @@
-#These are functions that manipulate the landscape to produce summary statistics
-#implemented in the 'ape' or 'pegas' packages on CRAN.
-#pegas and ape must be installed and loaded for these to work.
-#interface to theta.h
-landscape.theta.h <- function(rland)
-  {
-    retval <- matrix(0,ncol=length(rland$loci),nrow=rland$intparam$habitats)
-    for (i in 1:rland$intparam$habitats)
-      {
-        rland.tmp <- rland
-        rland.tmp$individuals <- rland.tmp$individuals[landscape.populations(rland.tmp)==i,]
-        for (j in 1:length(rland$loci))
-          {
-            alleledist <- as.factor(landscape.locus(rland.tmp,lnum=j)[,c(-1:-(landscape.democol()))])
-            if (length(unique(alleledist))>1)
-              retval[i,j] <- pegas::theta.h(alleledist)
-            else
-              retval[i,j] <- NA
-          }
-      }
+# Allele-based summaries retain the pegas estimators for ordinary samples.
+.landscape.allele.theta <- function(rland, method = c("h", "k")) {
+    method <- match.arg(method)
+    retval <- matrix(NA_real_, nrow = rland$intparam$habitats,
+                     ncol = length(rland$loci))
+    populations <- rland$individuals[, 1] %/% rland$intparam$stages + 1L
+    locusvec <- landscape.locusvec(rland)
+    for (i in seq_len(rland$intparam$habitats)) {
+        for (j in seq_along(rland$loci)) {
+            cols <- which(locusvec == j) + landscape.democol()
+            copies <- as.vector(rland$individuals[populations == i, cols, drop = FALSE])
+            n <- length(copies)
+            k <- length(unique(copies))
+            # Preserve existing NA behaviour for monomorphic samples.
+            if (n < 2L || k < 2L) next
+            # All copies distinct: theta.k has no finite root.
+            if (method == "k" && k == n) next
+            retval[i, j] <- if (method == "h") pegas::theta.h(factor(copies)) else
+                pegas::theta.k(factor(copies))
+        }
+    }
     retval
-  }
+}
 
-#interface to theta.k
-landscape.theta.k <- function(rland)
-  {
-    retval <- matrix(0,ncol=length(rland$loci),nrow=rland$intparam$habitats)
-    for (i in 1:rland$intparam$habitats)
-      {
-        rland.tmp <- rland
-        rland.tmp$individuals <- rland.tmp$individuals[landscape.populations(rland.tmp)==i,]
-        for (j in 1:length(rland$loci))
-          {
-            alleledist <- as.factor(landscape.locus(rland.tmp,lnum=j)[,c(-1:-(landscape.democol()))])
-            if (length(unique(alleledist))>1)
-              retval[i,j] <- pegas::theta.k(alleledist)
-            else
-              retval[i,j] <- NA
-          }
-      }
-    retval
-  }
+landscape.theta.h <- function(rland) {
+    .landscape.allele.theta(rland, "h")
+}
+
+landscape.theta.k <- function(rland) {
+    .landscape.allele.theta(rland, "k")
+}
 
 # Extract every sampled gene copy, not just unique allele states.
 .landscape.sequence.summary <- function(rland, tajima = FALSE) {
